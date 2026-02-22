@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>✿ Dreamy AI ✿</title>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Itim&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --text: #8a6898;
+  --soft: #c8a8d8;
+}
+
+body {
+  background: linear-gradient(150deg, #feeaf5 0%, #ece0fc 35%, #daeeff 65%, #d8f8f0 100%);
+  min-height: 100vh;
+  font-family: 'Itim', sans-serif;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 16px 80px;
+  overflow-x: hidden;
+}
+
+.particle {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: floatUp linear infinite;
+  z-index: 0;
+}
+@keyframes floatUp {
+  0%   { transform: translateY(0)    scale(1);   opacity: 0.6; }
+  100% { transform: translateY(-110px) scale(1.3); opacity: 0; }
+}
+
+/* ── Cloud card built safely with SVG bump + div ── */
+.cloud-wrap {
+  width: 100%;
+  max-width: 460px;
+  margin-top: 8px;
+  z-index: 1;
+  position: relative;
+}
+.cloud-bump-svg {
+  display: block;
+  width: 100%;
+  height: 50px;
+  /* overlap 1px so no gap */
+  margin-bottom: -1px;
+}
+.main-card {
+  background: rgba(255,255,255,0.76);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2.5px solid rgba(255,255,255,0.95);
+  border-top: none;
+  border-radius: 0 0 52px 52px;
+  box-shadow: 0 12px 48px rgba(200,160,230,0.18), 0 2px 8px rgba(200,160,230,0.10);
+  padding: 28px 28px 32px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 36px;
+  z-index: 2;
+  position: relative;
+}
+.sparkle-row {
+  font-size: 24px;
+  letter-spacing: 6px;
+  margin-bottom: 8px;
+  display: block;
+  animation: hue 4s ease-in-out infinite;
+}
+@keyframes hue { 0%,100%{ filter:hue-rotate(0deg); } 50%{ filter:hue-rotate(45deg); } }
+h1 {
+  font-family: 'Pacifico', cursive;
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  background: linear-gradient(130deg, #e888b0, #b888e8, #88c4e8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 3px 10px rgba(200,140,230,0.25));
+  margin-bottom: 6px;
+}
+.tagline {
+  font-size: 17px;
+  color: var(--soft);
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,255,255,0.82);
+  border: 1.5px solid rgba(255,255,255,0.95);
+  border-radius: 40px;
+  padding: 5px 16px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--soft);
+  letter-spacing: 0.5px;
+  margin-bottom: 18px;
+}
+.dot-live {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #f5a8cc;
+  animation: blink 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  background: rgba(230,215,250,0.35);
+  padding: 5px;
+  border-radius: 40px;
+  border: 1.5px solid rgba(255,255,255,0.85);
+}
+.tab {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: 34px;
+  font-family: 'Itim', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: transparent;
+  color: var(--soft);
+}
+.tab.active {
+  background: linear-gradient(135deg, #f5c8e8, #d4b8f8);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(200,140,230,0.3);
+}
+
+.preview-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+.preview-frame {
+  width: 220px;
+  height: 220px;
+  border-radius: 40px;
+  overflow: hidden;
+  border: 3px solid rgba(255,255,255,0.98);
+  box-shadow: 0 6px 28px rgba(200,150,230,0.22), 0 0 0 7px rgba(235,215,255,0.4);
+  background: linear-gradient(135deg, #fde8f8, #ece0fc, #daeeff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.preview-frame canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  display: block;
+}
+#preview-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+.placeholder-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #c8a8e0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+}
+.placeholder-emoji {
+  font-size: 52px;
+  animation: bob 3s ease-in-out infinite;
+}
+@keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-12px);} }
+
+.orbit-ring {
+  position: absolute;
+  width: 264px; height: 264px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(210,180,240,0.4);
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  animation: spin 12s linear infinite;
+  pointer-events: none;
+}
+@keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+.orbit-dot {
+  position: absolute;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: #fbc8d8;
+  top: -4.5px;
+  left: calc(50% - 4.5px);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 40px;
+  font-family: 'Itim', sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f0aad0, #c8a0e8, #a0c8f0);
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(200,140,220,0.35), inset 0 1px 0 rgba(255,255,255,0.28);
+  transition: all 0.3s;
+  margin-bottom: 10px;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 32px rgba(200,140,220,0.45);
+}
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.upload-label {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: 2.5px dashed rgba(200,160,230,0.5);
+  border-radius: 40px;
+  font-family: 'Itim', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--soft);
+  background: rgba(230,210,250,0.2);
+  transition: all 0.3s;
+  margin-bottom: 10px;
+}
+.upload-label:hover { background: rgba(230,210,250,0.45); border-color: rgba(200,160,230,0.75); }
+#file-input { display: none; }
+
+#label-container { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.label-bubble {
+  background: rgba(255,255,255,0.65);
+  border: 2px solid rgba(255,255,255,0.92);
+  border-radius: 22px;
+  padding: 11px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.25s;
+}
+.label-bubble.top-pick {
+  background: linear-gradient(135deg, rgba(253,225,240,0.75), rgba(228,212,255,0.75));
+  border-color: rgba(218,185,240,0.85);
+  box-shadow: 0 4px 20px rgba(200,140,220,0.2);
+  transform: scale(1.02);
+}
+.label-emoji { font-size: 24px; flex-shrink: 0; }
+.label-info  { flex: 1; min-width: 0; }
+.label-name  { font-weight: 800; font-size: 16px; color: var(--text); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track   { height: 7px; background: rgba(210,190,235,0.28); border-radius: 10px; overflow: hidden; }
+.bar-fill    { height: 100%; border-radius: 10px; background: linear-gradient(90deg,#f0a8cc,#c8a0e8,#a8c8f4); width: 0%; transition: width 0.18s ease; }
+.label-pct   { font-weight: 800; font-size: 16px; color: #c090d8; flex-shrink: 0; width: 36px; text-align: right; }
+
+.sound-btn {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.95);
+  background: linear-gradient(135deg, #f8d0ec, #dcc8fc);
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(200,140,220,0.3);
+  z-index: 100;
+  transition: all 0.3s;
+  display: flex; align-items: center; justify-content: center;
+}
+.sound-btn:hover { transform: scale(1.12) rotate(8deg); }
+
+.dream-footer {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 14px;
+  color: rgba(180,150,210,0.5);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Disease Info Card ── */
+.disease-wrap {
+  width: 100%;
+  max-width: 460px;
+  margin-top: 20px;
+  z-index: 1;
+  position: relative;
+  display: none;
+  animation: slideUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes slideUp {
+  from { opacity:0; transform:translateY(24px) scale(0.97); }
+  to   { opacity:1; transform:translateY(0)    scale(1); }
+}
+.disease-bump-svg { display:block; width:100%; height:40px; margin-bottom:-1px; }
+.disease-card {
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2.5px solid rgba(255,255,255,0.95);
+  border-top: none;
+  border-radius: 0 0 48px 48px;
+  padding: 22px 28px 30px;
+}
+.disease-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1.5px solid rgba(230,210,245,0.5);
+}
+.disease-icon { font-size: 36px; flex-shrink: 0; }
+.disease-title { flex: 1; min-width: 0; }
+.disease-name-th { font-size: 14px; font-weight: 700; color: var(--soft); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+.disease-name-en { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.2; }
+.disease-tag { font-size: 13px; font-weight: 800; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px; flex-shrink: 0; }
+.tag-virus    { background:#ffe0f0; color:#d060a0; }
+.tag-fungus   { background:#e8d8ff; color:#9060d0; }
+.tag-bacteria { background:#d8f0ff; color:#4090c0; }
+.tag-insect   { background:#fff0d8; color:#c08030; }
+.info-section { margin-bottom: 14px; }
+.info-section-title { font-size: 14px; font-weight: 800; color: var(--soft); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+.info-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: rgba(255,255,255,0.75); border: 1.5px solid rgba(220,200,240,0.6); border-radius: 30px; padding: 5px 12px; font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.4; }
+.chip.symptom { border-color: rgba(240,180,200,0.6); background: rgba(255,240,245,0.7); }
+.chip.manage  { border-color: rgba(180,220,200,0.6); background: rgba(230,255,245,0.7); }
+.disease-note { background: rgba(255,245,200,0.5); border: 1.5px solid rgba(240,220,120,0.4); border-radius: 16px; padding: 10px 14px; font-size: 14px; font-weight: 700; color: #b09030; margin-top: 6px; line-height: 1.5; }
+
+/* ── Disease Browser Buttons ── */
+.browse-btn {
+  background: rgba(255,255,255,0.7);
+  border: 2px solid rgba(220,200,245,0.6);
+  border-radius: 22px;
+  padding: 14px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.25s ease;
+  font-family: 'Itim', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.browse-btn:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 8px 24px rgba(200,150,230,0.25);
+  border-color: rgba(200,160,235,0.8);
+  background: rgba(255,245,255,0.85);
+}
+.browse-btn.active {
+  background: linear-gradient(135deg, rgba(250,220,240,0.85), rgba(225,210,255,0.85));
+  border-color: rgba(210,170,240,0.9);
+  box-shadow: 0 6px 20px rgba(200,140,220,0.3);
+  transform: translateY(-2px);
+}
+.browse-icon { font-size: 28px; line-height: 1; }
+.browse-name-en { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.3; }
+.browse-name-th { font-size: 12px; color: var(--soft); }
+</style>
+</head>
+<body>
+
+<div id="particles"></div>
+
+<header>
+  <span class="sparkle-row">✦ ˚ ✿ ˚ ✦</span>
+  <h1>Dreamy AI</h1>
+  <p class="tagline">✨ magic vision in the clouds ✨</p>
+</header>
+
+<div class="cloud-wrap">
+  <!-- Safe SVG cloud bumps — no CSS pseudo-element layout bugs -->
+  <svg class="cloud-bump-svg" viewBox="0 0 460 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,50 L0,32 Q20,32 30,18 Q42,4 62,12 Q76,0 96,10 Q112,0 130,10 Q148,-4 170,10 Q188,4 205,15 Q224,1 248,13 Q266,3 286,15 Q308,5 328,18 Q346,8 366,15 Q386,3 410,17 Q430,9 460,22 L460,50 Z"
+      fill="rgba(255,255,255,0.76)" stroke="rgba(255,255,255,0.95)" stroke-width="2.5" stroke-linejoin="round"/>
+  </svg>
+
+  <div class="main-card">
+    <div style="text-align:center;">
+      <div class="status-pill">
+        <div class="dot-live"></div>
+        <span id="status-text">พร้อมใช้งานแล้วนะ ☁️</span>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-cam"    onclick="switchMode('cam')">📷 กล้อง</button>
+      <button class="tab"        id="tab-upload" onclick="switchMode('upload')">🌸 อัพโหลด</button>
+      <button class="tab"        id="tab-browse" onclick="switchMode('browse')">📚 โรค</button>
+    </div>
+
+    <div class="preview-wrap">
+      <div class="preview-frame" id="preview-frame">
+        <div class="placeholder-inner" id="placeholder">
+          <div class="placeholder-emoji">☁️</div>
+          <div>รอความฝัน</div>
+        </div>
+        <img id="preview-img" alt=""/>
+      </div>
+      <div class="orbit-ring"><div class="orbit-dot"></div></div>
+    </div>
+
+    <div id="cam-controls">
+      <button class="btn-primary" id="start-btn" onclick="initCam()">☁️ เปิดกล้องมนต์วิเศษ</button>
+    </div>
+
+    <div id="upload-controls" style="display:none;">
+      <label class="upload-label" for="file-input">🌸 เลือกรูปภาพจากฝัน...</label>
+      <input type="file" id="file-input" accept="image/*" onchange="handleUpload(event)"/>
+      <button class="btn-primary" id="predict-btn" onclick="predictUpload()" disabled>✨ วิเคราะห์ความฝัน</button>
+    </div>
+
+    <div id="browse-controls" style="display:none;">
+      <div style="font-size:14px; color:#c8b8d8; text-align:center; margin-bottom:14px;">กดเลือกโรคเพื่อดูข้อมูล ✨</div>
+      <div id="disease-browser" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+    </div>
+
+    <div id="label-container"></div>
+  </div>
+</div>
+
+<div class="dream-footer">made with ♡ &nbsp;·&nbsp; powered by teachable machine</div>
+<button class="sound-btn" id="sound-btn" onclick="toggleSound()">🔇</button>
+
+<script>
+// Particles
+const pColors = ['#fbc8d8','#dcc8f8','#c8f0e8','#fde0c8','#c8e8fc'];
+const pCont = document.getElementById('particles');
+for (let i = 0; i < 28; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  const s = Math.random()*9+4;
+  p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;top:${40+Math.random()*55}%;background:${pColors[i%pColors.length]};animation-duration:${Math.random()*7+5}s;animation-delay:${Math.random()*7}s;`;
+  pCont.appendChild(p);
+}
+
+// ── DREAMY SOUND SYSTEM ──────────────────────────────────
+let audioCtx=null, masterGain=null, soundOn=false, chimeTimer=null;
+
+// Music box melody — C major pentatonic, high register, cute ✨
+const MELODY = [
+  523.25, 659.25, 783.99, 1046.5, 783.99, 659.25,
+  880.00, 1046.5, 987.77, 783.99, 659.25, 523.25
+];
+const CHIME_GAPS = [0, 0.55, 1.1, 1.8, 2.35, 2.9, 3.6, 4.15, 4.7, 5.4, 5.95, 6.8];
+
+function buildAmbience() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0;
+  masterGain.connect(audioCtx.destination);
+
+  // ── 1. Soft dreamy pad (audible, gentle) ──
+  const padFreqs = [261.63, 329.63, 392.00, 523.25];
+  padFreqs.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    const pan = audioCtx.createStereoPanner();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    // Gentle vibrato
+    const lfo = audioCtx.createOscillator();
+    const lg  = audioCtx.createGain();
+    lfo.frequency.value = 0.3 + i * 0.15;
+    lg.gain.value = 2;
+    lfo.connect(lg); lg.connect(osc.frequency); lfo.start();
+
+    g.gain.value  = 0.08;
+    pan.pan.value = (i / 3 - 0.5) * 0.8;
+
+    // Slow swell: fade in and out
+    const now = audioCtx.currentTime;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.08, now + 3 + i * 0.8);
+
+    osc.connect(g); g.connect(pan); pan.connect(masterGain);
+    osc.start();
+  });
+
+  // ── 2. High sparkle tone layer (pretty, clearly audible) ──
+  [1046.5, 1318.5, 1567.98].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    g.gain.value = 0.035;
+
+    // Tremolo (makes it shimmer)
+    const trem = audioCtx.createOscillator();
+    const tg   = audioCtx.createGain();
+    trem.frequency.value = 4 + i * 1.5;
+    tg.gain.value = 0.03;
+    trem.connect(tg); tg.connect(g.gain); trem.start();
+
+    osc.connect(g); g.connect(masterGain);
+    osc.start();
+  });
+
+  // ── 3. Reverb (convolver) for dreamy tail ──
+  const revLen = audioCtx.sampleRate * 2.5;
+  const revBuf = audioCtx.createBuffer(2, revLen, audioCtx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = revBuf.getChannelData(ch);
+    for (let i = 0; i < revLen; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/revLen, 2.5);
+  }
+  const reverb = audioCtx.createConvolver();
+  reverb.buffer = revBuf;
+  const revGain = audioCtx.createGain();
+  revGain.gain.value = 0.45;
+  reverb.connect(revGain); revGain.connect(masterGain);
+
+  // Store reverb for chimes to use
+  audioCtx._reverb = reverb;
+}
+
+// ── Music box chime: pluck a note with quick attack & long tail ──
+function playChime(freq, vol=0.55, pan=0) {
+  if (!audioCtx || !soundOn) return;
+  const now = audioCtx.currentTime;
+
+  const osc1 = audioCtx.createOscillator(); // fundamental
+  const osc2 = audioCtx.createOscillator(); // slight overtone
+  const env  = audioCtx.createGain();
+  const panner = audioCtx.createStereoPanner();
+
+  osc1.type = 'sine'; osc1.frequency.value = freq;
+  osc2.type = 'triangle'; osc2.frequency.value = freq * 2.01; // slight detuned harmonic
+
+  const g2 = audioCtx.createGain(); g2.gain.value = 0.18;
+
+  // Pluck envelope: very fast attack, gentle exponential decay
+  env.gain.setValueAtTime(0, now);
+  env.gain.linearRampToValueAtTime(vol, now + 0.008);
+  env.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+
+  panner.pan.value = pan;
+
+  osc1.connect(env); osc2.connect(g2); g2.connect(env);
+  env.connect(panner);
+  panner.connect(masterGain);
+  if (audioCtx._reverb) panner.connect(audioCtx._reverb);
+
+  osc1.start(now); osc2.start(now);
+  osc1.stop(now + 2); osc2.stop(now + 2);
+}
+
+// ── Schedule looping melody ──
+function scheduleMelody() {
+  if (!soundOn) return;
+  let idx = 0;
+  function next() {
+    if (!soundOn) return;
+    const f = MELODY[idx % MELODY.length];
+    const panVal = (Math.random() - 0.5) * 0.7;
+    playChime(f, 0.45 + Math.random()*0.15, panVal);
+
+    // Occasional harmony note
+    if (idx % 3 === 0) {
+      setTimeout(() => playChime(f * 1.5, 0.2, -panVal), 120);
+    }
+
+    idx++;
+    const gap = (CHIME_GAPS[idx % CHIME_GAPS.length] - CHIME_GAPS[(idx-1) % CHIME_GAPS.length]);
+    const ms = Math.max(350, Math.abs(gap) * 1000 + 200 + Math.random()*300);
+    chimeTimer = setTimeout(next, ms);
+  }
+  // Small delay before first chime
+  chimeTimer = setTimeout(next, 600);
+}
+
+function toggleSound() {
+  if (!audioCtx) buildAmbience();
+  soundOn = !soundOn;
+
+  const t = audioCtx.currentTime;
+  masterGain.gain.cancelScheduledValues(t);
+  masterGain.gain.setValueAtTime(masterGain.gain.value, t);
+  masterGain.gain.linearRampToValueAtTime(soundOn ? 0.75 : 0, t + 1.2);
+
+  if (soundOn) {
+    scheduleMelody();
+  } else {
+    if (chimeTimer) clearTimeout(chimeTimer);
+  }
+  document.getElementById('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+}
+
+// Model
+const MODEL_URL="https://teachablemachine.withgoogle.com/models/zr_nYpEAq/";
+let model,webcam,maxPredictions,labelBubbles=[],uploadedSrc=null;
+const EMOJIS=['🌸','☁️','✨','🌙','🦋','🌷','💫','🌈'];
+
+function switchMode(mode){
+  ['cam','upload','browse'].forEach(m=>{
+    document.getElementById('tab-'+m).classList.toggle('active',mode===m);
+  });
+  document.getElementById('cam-controls').style.display    = mode==='cam'    ? '' : 'none';
+  document.getElementById('upload-controls').style.display = mode==='upload' ? '' : 'none';
+  document.getElementById('browse-controls').style.display = mode==='browse' ? '' : 'none';
+  document.querySelector('.preview-wrap').style.display    = mode==='browse' ? 'none' : '';
+  document.getElementById('label-container').style.display = mode==='browse' ? 'none' : '';
+
+  if(mode!=='cam'&&webcam){try{webcam.stop();}catch(e){}webcam=null;const cv=document.getElementById('preview-frame').querySelector('canvas');if(cv)cv.remove();resetStart();}
+  const img=document.getElementById('preview-img');
+  if(mode==='upload'&&uploadedSrc){img.src=uploadedSrc;img.style.display='block';document.getElementById('placeholder').style.display='none';}
+  else if(mode==='cam'){img.style.display='none';if(!webcam)document.getElementById('placeholder').style.display='flex';}
+  if(mode!=='browse') clearLabels();
+  document.getElementById('disease-wrap').style.display='none';
+}
+
+function resetStart(){const b=document.getElementById('start-btn');b.disabled=false;b.textContent='☁️ เปิดกล้องมนต์วิเศษ';}
+
+async function initCam(){
+  const btn=document.getElementById('start-btn');
+  btn.disabled=true;btn.textContent='✨ กำลังเรียกมนตรา...';setStatus('กำลังโหลดโมเดล ☁️');
+  try{
+    if(!model){model=await tmImage.load(MODEL_URL+"model.json",MODEL_URL+"metadata.json");maxPredictions=model.getTotalClasses();}
+    webcam=new tmImage.Webcam(220,220,true);await webcam.setup();await webcam.play();
+    document.getElementById('placeholder').style.display='none';document.getElementById('preview-img').style.display='none';
+    const frame=document.getElementById('preview-frame');const old=frame.querySelector('canvas');if(old)old.remove();
+    webcam.canvas.style.cssText='position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;display:block;';
+    frame.insertBefore(webcam.canvas,frame.firstChild);
+    buildLabels();setStatus('กำลังวิเคราะห์อยู่ ✨');btn.textContent='✅ กล้องเปิดอยู่';
+    window.requestAnimationFrame(camLoop);
+  }catch(e){resetStart();setStatus('เกิดข้อผิดพลาด ลองใหม่นะ 🌸');}
+}
+async function camLoop(){if(!webcam)return;webcam.update();const p=await model.predict(webcam.canvas);updateLabels(p);window.requestAnimationFrame(camLoop);}
+
+function handleUpload(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    uploadedSrc=ev.target.result;
+    const img=document.getElementById('preview-img');img.src=uploadedSrc;img.style.display='block';
+    document.getElementById('placeholder').style.display='none';
+    document.getElementById('predict-btn').disabled=false;setStatus('รูปพร้อมแล้ว กดวิเคราะห์ได้เลย ✨');clearLabels();
+  };r.readAsDataURL(file);
+}
+async function predictUpload(){
+  if(!uploadedSrc)return;
+  const btn=document.getElementById('predict-btn');btn.disabled=true;btn.textContent='✨ กำลังฝัน...';setStatus('กำลังวิเคราะห์ ☁️');
+  try{
+    if(!model){model=await tmImage.load(MODEL_URL+"model.json",MODEL_URL+"metadata.json");maxPredictions=model.getTotalClasses();}
+    const canvas=document.createElement('canvas');canvas.width=224;canvas.height=224;
+    const ctx=canvas.getContext('2d'),img=new Image();img.src=uploadedSrc;
+    await new Promise(r=>{img.onload=r;if(img.complete)r();});ctx.drawImage(img,0,0,224,224);
+    buildLabels();const preds=await model.predict(canvas);updateLabels(preds);
+    setStatus('เสร็จแล้ว ✿');btn.textContent='✨ วิเคราะห์ความฝัน';btn.disabled=false;
+  }catch(e){btn.disabled=false;btn.textContent='✨ วิเคราะห์ความฝัน';setStatus('เกิดข้อผิดพลาด 🌸');}
+}
+
+function buildLabels(){
+  if(labelBubbles.length>0)return;
+  const c=document.getElementById('label-container');c.innerHTML='';labelBubbles=[];
+  for(let i=0;i<maxPredictions;i++){
+    const b=document.createElement('div');b.className='label-bubble';
+    b.innerHTML=`<div class="label-emoji">${EMOJIS[i%EMOJIS.length]}</div><div class="label-info"><div class="label-name">Class ${i+1}</div><div class="bar-track"><div class="bar-fill"></div></div></div><div class="label-pct">0%</div>`;
+    c.appendChild(b);labelBubbles.push(b);
+  }
+}
+// ── Disease Database ──────────────────────────────────────
+const DISEASE_DB = {
+  "tungro": {
+    icon:"🟡", nameEn:"Tungro", nameTh:"โรคใบสีส้มข้าว",
+    tag:"ไวรัส", tagClass:"tag-virus",
+    cause:["ไวรัส RTBV + RTSV","แพร่โดยเพลี้ยจักจั่นสีเขียว"],
+    symptoms:["ใบเหลือง–ส้ม","ต้นแคระ แตกกอน้อย","รวงสั้น เมล็ดลีบ"],
+    manage:["ใช้พันธุ์ต้านทาน","ควบคุมเพลี้ยจักจั่น","ถอนทำลายต้นเป็นโรค","ปลูกพร้อมกันทั้งพื้นที่"],
+    note:null
+  },
+  "hispa": {
+    icon:"🪲", nameEn:"Hispa", nameTh:"ด้วงหนวดยาวข้าว",
+    tag:"แมลง", tagClass:"tag-insect",
+    cause:["แมลงศัตรูพืช Dicladispa armigera"],
+    symptoms:["ตัวเต็มวัยขูดผิวใบ","ตัวอ่อนชอนไชในใบ","ใบเป็นเส้นสีขาวยาว ใบแห้ง"],
+    manage:["ปล่อยน้ำท่วมแปลงชั่วคราว","อนุรักษ์ศัตรูธรรมชาติ","ใช้สารกำจัดแมลงเมื่อระบาดรุนแรง"],
+    note:"⚠️ เป็นแมลงศัตรูพืช ไม่ใช่โรคติดเชื้อ"
+  },
+  "downy mildew": {
+    icon:"🌫️", nameEn:"Downy Mildew", nameTh:"ราน้ำค้างข้าว",
+    tag:"รา", tagClass:"tag-fungus",
+    cause:["เชื้อรากลุ่ม Oomycetes","มักเกิดในสภาพชื้นจัด"],
+    symptoms:["ใบมีปื้นเหลือง","ใต้ใบมีผงราสีเทา/ม่วงอ่อน"],
+    manage:["ลดความชื้น","ปรับระยะปลูก","ใช้สารป้องกันเชื้อราเมื่อจำเป็น"],
+    note:"⚠️ ไม่ใช่โรคสำคัญหลักเท่า Blast หรือ BLB"
+  },
+  "dead heart": {
+    icon:"🥀", nameEn:"Dead Heart", nameTh:"ยอดแห้งตาย",
+    tag:"แมลง", tagClass:"tag-insect",
+    cause:["หนอนกอข้าว (Stem borer)","ไม่ใช่โรคติดเชื้อ"],
+    symptoms:["ยอดกลางแห้ง","ดึงหลุดง่าย","ไม่ออกรวง"],
+    manage:["ทำลายตอซัง","ปล่อยแตนเบียน","ใช้สารกำจัดแมลงเมื่อจำเป็น"],
+    note:"⚠️ เป็นอาการจากแมลง ไม่ใช่โรคเชื้อรา/แบคทีเรีย"
+  },
+  "brown spot": {
+    icon:"🟤", nameEn:"Brown Spot", nameTh:"โรคใบจุดสีน้ำตาล",
+    tag:"รา", tagClass:"tag-fungus",
+    cause:["เชื้อรา Bipolaris oryzae"],
+    symptoms:["จุดสีน้ำตาลกลมหรือรี","ขอบเข้ม กลางซีด","ใบแห้ง เมล็ดด่าง"],
+    manage:["ใส่ปุ๋ยสมดุล (โดยเฉพาะ K)","ใช้เมล็ดพันธุ์สะอาด","คลุกเมล็ดด้วยสารป้องกันเชื้อรา"],
+    note:null
+  },
+  "blast": {
+    icon:"🔥", nameEn:"Blast", nameTh:"โรคไหม้ข้าว",
+    tag:"รา", tagClass:"tag-fungus",
+    cause:["เชื้อรา Magnaporthe oryzae"],
+    symptoms:["แผลรูปตา กลางสีเทา ขอบน้ำตาล","คอรวงไหม้ → รวงแห้ง","เมล็ดลีบ"],
+    manage:["ใช้พันธุ์ต้านทาน","ไม่ใส่ไนโตรเจนมากเกิน","พ่นสารป้องกันเชื้อราเมื่อเริ่มพบ"],
+    note:"✅ โรคสำคัญอันดับต้นๆ ของโลก"
+  },
+  "bacterial panicle blight": {
+    icon:"🌾", nameEn:"Bacterial Panicle Blight", nameTh:"รวงไหม้แบคทีเรีย",
+    tag:"แบคทีเรีย", tagClass:"tag-bacteria",
+    cause:["แบคทีเรีย Burkholderia glumae"],
+    symptoms:["รวงไหม้ช่วงออกดอก","เมล็ดไม่เต็ม น้ำหนักลด","เปลือกเมล็ดเปลี่ยนสี"],
+    manage:["ใช้เมล็ดพันธุ์สะอาด","หลีกเลี่ยงปลูกช่วงอากาศร้อนชื้น","จัดการธาตุอาหารสมดุล"],
+    note:null
+  },
+  "bacterial leaf streak": {
+    icon:"〰️", nameEn:"Bacterial Leaf Streak", nameTh:"โรคขีดน้ำตาลแบคทีเรีย",
+    tag:"แบคทีเรีย", tagClass:"tag-bacteria",
+    cause:["Xanthomonas oryzae pv. oryzicola"],
+    symptoms:["เส้นใสยาวตามแนวเส้นใบ","ต่อมาเป็นสีน้ำตาล","ผิวใบดูโปร่งแสง"],
+    manage:["ใช้พันธุ์ต้านทาน","หลีกเลี่ยงไนโตรเจนมากเกิน","ใช้เมล็ดพันธุ์สะอาด"],
+    note:null
+  },
+  "bacterial leaf blight": {
+    icon:"🍂", nameEn:"Bacterial Leaf Blight (BLB)", nameTh:"โรคขอบใบแห้ง",
+    tag:"แบคทีเรีย", tagClass:"tag-bacteria",
+    cause:["Xanthomonas oryzae pv. oryzae"],
+    symptoms:["ปลายใบเหลือง","ลุกลามตามขอบใบ","ใบแห้งเป็นรูปตัว V"],
+    manage:["ใช้พันธุ์ต้านทาน","จัดการน้ำดี","ลดการกระทบกระเทือนต้น"],
+    note:null
+  }
+};
+
+function buildDiseaseBrowser() {
+  const container = document.getElementById('disease-browser');
+  Object.entries(DISEASE_DB).forEach(([key, d]) => {
+    const btn = document.createElement('button');
+    btn.className = 'browse-btn';
+    btn.dataset.key = key;
+    btn.innerHTML = `
+      <div class="browse-icon">${d.icon}</div>
+      <div class="browse-name-en">${d.nameEn}</div>
+      <div class="browse-name-th">${d.nameTh}</div>
+    `;
+    btn.onclick = () => {
+      // Toggle active state
+      document.querySelectorAll('.browse-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      showDiseaseInfo(key);
+    };
+    container.appendChild(btn);
+  });
+}
+// Build browser on page load
+window.addEventListener('DOMContentLoaded', () => {
+  buildDiseaseBrowser();
+  // Attach soft click sound to all buttons
+  document.querySelectorAll('button, .upload-label, .browse-btn').forEach(el => {
+    el.addEventListener('click', playSoftClick);
+  });
+});
+
+function playSoftClick() {
+  // Build audioCtx lazily (reuse existing one if sound is on)
+  const ctx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+
+  const now = ctx.currentTime;
+  // Two soft sine tones — a gentle chime "plink"
+  [[880, 0.18], [1318.5, 0.09]].forEach(([freq, vol], i) => {
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    const pan = ctx.createStereoPanner();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    pan.pan.value = (i === 0 ? -0.3 : 0.3);
+
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(vol, now + 0.006);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+
+    osc.connect(env); env.connect(pan); pan.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 0.6);
+  });
+}
+
+function findDisease(className) {
+  const key = className.toLowerCase().trim();
+  if (DISEASE_DB[key]) return DISEASE_DB[key];
+  for (const k of Object.keys(DISEASE_DB)) {
+    if (key.includes(k) || k.includes(key)) return DISEASE_DB[k];
+  }
+  return null;
+}
+
+function showDiseaseInfo(className) {
+  const wrap = document.getElementById('disease-wrap');
+  const d = findDisease(className);
+  if (!d) { wrap.style.display='none'; return; }
+
+  document.getElementById('d-icon').textContent    = d.icon;
+  document.getElementById('d-name-th').textContent = d.nameTh;
+  document.getElementById('d-name-en').textContent = d.nameEn;
+  const tag = document.getElementById('d-tag');
+  tag.textContent  = d.tag;
+  tag.className    = 'disease-tag ' + d.tagClass;
+
+  const chips = (arr, cls) => arr.map(t=>`<div class="chip ${cls}">${t}</div>`).join('');
+  document.getElementById('d-cause').innerHTML    = chips(d.cause,'');
+  document.getElementById('d-symptoms').innerHTML = chips(d.symptoms,'symptom');
+  document.getElementById('d-manage').innerHTML   = chips(d.manage,'manage');
+
+  const noteEl = document.getElementById('d-note');
+  if (d.note) { noteEl.textContent=d.note; noteEl.style.display='block'; }
+  else { noteEl.style.display='none'; }
+
+  wrap.style.display = 'block';
+  // Re-trigger animation
+  wrap.style.animation = 'none';
+  wrap.offsetHeight;
+  wrap.style.animation = '';
+  wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function updateLabels(preds){
+  const top=preds.reduce((m,p,i,a)=>p.probability>a[m].probability?i:m,0);
+  preds.forEach((p,i)=>{const b=labelBubbles[i];if(!b)return;const pct=Math.round(p.probability*100);b.querySelector('.label-name').textContent=p.className;b.querySelector('.bar-fill').style.width=pct+'%';b.querySelector('.label-pct').textContent=pct+'%';b.classList.toggle('top-pick',i===top);});
+  // Show disease info for top class if confidence > 30%
+  if(preds[top].probability > 0.3) showDiseaseInfo(preds[top].className);
+}
+function clearLabels(){document.getElementById('label-container').innerHTML='';labelBubbles=[];document.getElementById('disease-wrap').style.display='none';}
+function setStatus(t){document.getElementById('status-text').textContent=t;}
+</script>
+
+<!-- Disease info card (outside main cloud card) -->
+<div class="disease-wrap" id="disease-wrap">
+  <svg class="disease-bump-svg" viewBox="0 0 460 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,40 L0,25 Q25,25 38,13 Q52,2 72,10 Q88,0 108,10 Q130,-2 155,10 Q175,3 195,14 Q218,0 242,12 Q262,2 285,14 Q308,4 332,16 Q355,6 378,16 Q400,4 428,17 Q445,9 460,20 L460,40 Z"
+      fill="rgba(255,255,255,0.78)" stroke="rgba(255,255,255,0.95)" stroke-width="2.5" stroke-linejoin="round"/>
+  </svg>
+  <div class="disease-card">
+    <div class="disease-header">
+      <div class="disease-icon" id="d-icon">🌾</div>
+      <div class="disease-title">
+        <div class="disease-name-th" id="d-name-th">-</div>
+        <div class="disease-name-en" id="d-name-en">-</div>
+      </div>
+      <div class="disease-tag" id="d-tag">-</div>
+    </div>
+    <div class="info-section">
+      <div class="info-section-title">🔬 สาเหตุ</div>
+      <div class="info-chips" id="d-cause"></div>
+    </div>
+    <div class="info-section">
+      <div class="info-section-title">🍂 อาการ</div>
+      <div class="info-chips" id="d-symptoms"></div>
+    </div>
+    <div class="info-section">
+      <div class="info-section-title">💊 การจัดการ</div>
+      <div class="info-chips" id="d-manage"></div>
+    </div>
+    <div class="disease-note" id="d-note" style="display:none;"></div>
+  </div>
+</div>
+
+</body>
+</html>
